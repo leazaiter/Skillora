@@ -1,0 +1,32 @@
+# Environment variables
+.env
+*.env
+
+# Node.js
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# NestJS build
+dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Uploads
+uploads/
+
+# IDE
+.vscode/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
