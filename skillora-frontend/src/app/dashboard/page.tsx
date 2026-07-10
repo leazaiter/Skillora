@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -18,6 +18,68 @@ interface Message {
 interface Skill {
   name: string;
   level: 'strong' | 'weak';
+}
+function YouTubePlayer({
+  videoId,
+  skill,
+  onComplete
+}: {
+  videoId: string;
+  skill: string;
+  onComplete: (skill: string) => void;
+}) {
+  const playerRef = useRef<any>(null);
+  const divId = `yt-player-${skill.replace(/[^a-zA-Z0-9]/g, '-')}`;
+
+  useEffect(() => {
+    const createPlayer = () => {
+      if ((window as any).YT && (window as any).YT.Player) {
+        playerRef.current = new (window as any).YT.Player(divId, {
+          videoId,
+          height: '280',
+          width: '100%',
+          playerVars: {
+            rel: 0,
+            modestbranding: 1,
+          },
+          events: {
+            onStateChange: (event: any) => {
+              // 0 = ended
+              if (event.data === 0) {
+                onComplete(skill);
+              }
+            },
+          },
+        });
+      }
+    };
+
+    // If YT API already loaded
+    if ((window as any).YT && (window as any).YT.Player) {
+      createPlayer();
+    } else {
+      // Wait for API to load
+      const previousCallback = (window as any).onYouTubeIframeAPIReady;
+      (window as any).onYouTubeIframeAPIReady = () => {
+        if (previousCallback) previousCallback();
+        createPlayer();
+      };
+    }
+
+    return () => {
+      if (playerRef.current) {
+        try {
+          playerRef.current.destroy();
+        } catch { }
+      }
+    };
+  }, [videoId, divId, skill, onComplete]);
+
+  return (
+    <div className="rounded-xl overflow-hidden border border-white/10">
+      <div id={divId} className="w-full" />
+    </div>
+  );
 }
 
 export default function DashboardPage() {
@@ -104,25 +166,18 @@ export default function DashboardPage() {
   const [activeVideoPhase, setActiveVideoPhase] = useState<string | null>(null);
   const [videoCompleted, setVideoCompleted] = useState<{ [key: string]: boolean }>({});
 
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== 'https://www.youtube.com') return;
-      try {
-        const data = JSON.parse(event.data);
-        if (data.event === 'onStateChange' && data.info === 0) {
-          if (activeVideoPhase) {
-            setVideoCompleted(prev => ({ ...prev, [activeVideoPhase]: true }));
-            // Auto mark as learned when video ends
-            handleSkillComplete(activeVideoPhase);
-            setActiveVideoPhase(null);
-          }
-        }
-      } catch { }
-    };
+  const handleVideoComplete = useCallback(async (skill: string) => {
+    setVideoCompleted(prev => ({ ...prev, [skill]: true }));
+    setActiveVideoPhase(null);
+    await handleSkillComplete(skill);
+  }, [selectedRole]);
 
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [activeVideoPhase]);
+  useEffect(() => {
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+  }, []);
 
   const toggleAnswer = (idx: number) => {
     setShowAnswers(prev => ({ ...prev, [idx]: !prev[idx] }));
@@ -1358,7 +1413,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* SECTION 4: ROADMAP */}
+        {/* SECTION 5: ROADMAP */}
         <section id="roadmap" className="min-h-screen flex flex-col justify-center px-4 md:px-12 border-b border-white/5">
           <div className="max-w-3xl space-y-8">
             <motion.div
@@ -1399,7 +1454,6 @@ export default function DashboardPage() {
                   const isFirst = idx === 0;
                   const video = SKILL_VIDEOS[skill.toLowerCase()];
                   const isWatchingThis = activeVideoPhase === skill;
-                  const isVideoDone = videoCompleted[skill];
 
                   return (
                     <motion.div
@@ -1411,11 +1465,10 @@ export default function DashboardPage() {
                       whileHover={isFirst ? { x: 4 } : {}}
                       className="relative"
                     >
-                      <div className={`absolute -left-[41px] top-0 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-boldn${isFirst
-                        ? 'bg-blue-600 border border-blue-400 text-white animate-pulse shadow-[0_0_15px_rgba(59,130,246,0.6)]'
-                        : 'bg-zinc-900 border border-white/10 text-gray-500 blur-[0.5px] opacity-40'
-                        }`}
-                      >
+                      <div className={`absolute -left-[41px] top-0 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${isFirst
+                          ? 'bg-blue-600 border border-blue-400 text-white animate-pulse shadow-[0_0_15px_rgba(59,130,246,0.6)]'
+                          : 'bg-zinc-900 border border-white/10 text-gray-500 blur-[0.5px] opacity-40'
+                        }`}>
                         {isFirst ? '➔' : '🔒'}
                       </div>
 
@@ -1427,70 +1480,48 @@ export default function DashboardPage() {
                           Master <span className="text-blue-300">{skill}</span> to improve your match for {selectedRole}.
                         </p>
 
-                        {isFirst && video && (
+                        {isFirst && (
                           <div className="space-y-3">
-                            {!isWatchingThis ? (
-                              <motion.button
-                                whileHover={{ scale: 1.04 }}
-                                whileTap={{ scale: 0.96 }}
-                                onClick={() => setActiveVideoPhase(skill)}
-                                className="flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 text-red-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
-                              >
-                                ▶ Watch Course — {video.title}
-                              </motion.button>
+                            {video ? (
+                              <>
+                                {!isWatchingThis ? (
+                                  <motion.button
+                                    whileHover={{ scale: 1.04 }}
+                                    whileTap={{ scale: 0.96 }}
+                                    onClick={() => setActiveVideoPhase(skill)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 text-red-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
+                                  >
+                                    ▶ Watch Course — {video.title}
+                                  </motion.button>
+                                ) : (
+                                  <div className="space-y-3">
+                                    <YouTubePlayer
+                                      videoId={video.videoId}
+                                      skill={skill}
+                                      onComplete={handleVideoComplete}
+                                    />
+                                    <p className="text-[10px] text-gray-500 font-mono animate-pulse">
+                                      ⏳ Complete the video to automatically unlock the next phase...
+                                    </p>
+                                  </div>
+                                )}
+                              </>
                             ) : (
                               <div className="space-y-3">
-                                <div className="rounded-xl overflow-hidden border border-white/10">
-                                  <iframe
-                                    width="100%"
-                                    height="280"
-                                    src={`https://www.youtube.com/embed/${video.videoId}?enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}&rel=0`}
-                                    title={video.title}
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                    className="w-full"
-                                  />
-                                </div>
-                                <p className="text-[10px] text-gray-500 font-mono animate-pulse">
-                                  ⏳ Complete the video to automatically unlock the next phase...
+                                <p className="text-[10px] text-gray-500">
+                                  🔍 Search: <span className="text-blue-400">"{skill} tutorial for beginners" on YouTube</span>
                                 </p>
+                                <motion.button
+                                  whileHover={{ scale: 1.04 }}
+                                  whileTap={{ scale: 0.96 }}
+                                  onClick={() => handleSkillComplete(skill)}
+                                  className="flex items-center gap-2 px-4 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
+                                >
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  ✓ Mark as Learned
+                                </motion.button>
                               </div>
                             )}
-                          </div>
-                        )}
-
-                        {/* No video available fallback — keep manual button only here */}
-                        {isFirst && !video && (
-                          <div className="space-y-3">
-                            <p className="text-[10px] text-gray-500">
-                              🔍 Search: <span className="text-blue-400">"{skill} tutorial for beginners" on YouTube</span>
-                            </p>
-                            <motion.button
-                              whileHover={{ scale: 1.04 }}
-                              whileTap={{ scale: 0.96 }}
-                              onClick={() => handleSkillComplete(skill)}
-                              className="flex items-center gap-2 px-4 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
-                            >
-                              <CheckCircle2 className="w-3 h-3" />
-                              ✓ Mark as Learned
-                            </motion.button>
-                          </div>
-                        )}
-
-                        {isFirst && !video && (
-                          <div className="space-y-3">
-                            <p className="text-[10px] text-gray-500">
-                              🔍 Search: <span className="text-blue-400">"{skill} tutorial for beginners" on YouTube</span>
-                            </p>
-                            <motion.button
-                              whileHover={{ scale: 1.04, boxShadow: '0 0 15px rgba(16,185,129,0.4)' }}
-                              whileTap={{ scale: 0.96 }}
-                              onClick={() => handleSkillComplete(skill)}
-                              className="flex items-center gap-2 px-4 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
-                            >
-                              <CheckCircle2 className="w-3 h-3" />
-                              ✓ Mark as Learned
-                            </motion.button>
                           </div>
                         )}
                       </div>
