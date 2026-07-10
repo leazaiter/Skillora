@@ -13,13 +13,11 @@ export default function AuthModal({ initialMode, onClose }: AuthModalProps) {
   const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(initialMode === 'signup');
   
-  // States
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  // Clear fields and errors when switching modes
   const resetForm = (signUpMode: boolean) => {
     setIsSignUp(signUpMode);
     setUsername('');
@@ -37,13 +35,12 @@ export default function AuthModal({ initialMode, onClose }: AuthModalProps) {
     setError('');
 
     const result = await signIn('credentials', {
-      email: username, // Your identifier (can be email or username depending on your NextAuth backend configuration)
+      email: username,
       password,
       redirect: false,
     });
 
     if (result?.error) {
-      // Direct matching based on what your NextAuth backend throws
       const err = result.error.toLowerCase();
       
       if (err.includes('password')) {
@@ -98,10 +95,8 @@ export default function AuthModal({ initialMode, onClose }: AuthModalProps) {
     const data = await res.json();
 
     if (!res.ok) {
-      // If server responds with "User already exists", it displays here
       setError(data.error || 'Something went wrong during registration.');
     } else {
-      // Auto-login after successful registration
       const result = await signIn('credentials', { email, password, redirect: false });
       if (result?.error) {
         setError('Registered successfully, but auto-login failed. Please log in manually.');

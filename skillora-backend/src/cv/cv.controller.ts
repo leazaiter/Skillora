@@ -103,7 +103,6 @@ export class CvController {
   async completeSkill(@Body() body: { skill: string, role: string }, @Req() req: any) {
     const userId = req.user.userId;
 
-    // Mark as completed in roadmap
     await this.pool.query(
       `INSERT INTO roadmap_progress (user_id, skill_name, role, completed, completed_at)
      VALUES ($1, $2, $3, true, NOW())
@@ -112,7 +111,6 @@ export class CvController {
       [userId, body.skill.toLowerCase(), body.role]
     );
 
-    // Add to verified skills
     await this.pool.query(
       `INSERT INTO skills (user_id, name, source)
      VALUES ($1, $2, 'learned')

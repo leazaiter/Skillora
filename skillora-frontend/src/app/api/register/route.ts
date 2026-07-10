@@ -9,8 +9,6 @@ export async function POST(req: Request) {
     if (!name || !email || !password) {
       return NextResponse.json({ error: 'All fields are required.' }, { status: 400 });
     }
-
-    // Wrap database lookups in precise try/catches to isolate the issue
     try {
       const existing = await pool.query(
         'SELECT name, email FROM users WHERE email = $1 OR name = $2',

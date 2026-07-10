@@ -27,7 +27,7 @@ export default function DashboardPage() {
   // --- STATE: MOBILE SIDEBAR ---
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  // --- STATE: CV UPLOAD & SCAN (SIMPLIFIED ENGLISH PIPELINE) ---
+  // --- STATE: CV UPLOAD & SCAN ---
   const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'extracting' | 'building' | 'matching' | 'complete'>('idle');
   const [scanProgress, setScanProgress] = useState(0);
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
@@ -55,6 +55,78 @@ export default function DashboardPage() {
   const [isLoadingRecs, setIsLoadingRecs] = useState(false);
 
   const [semanticScore, setSemanticScore] = useState<number | null>(null);
+  const [showAnswers, setShowAnswers] = useState<{ [key: number]: boolean }>({});
+
+  const SKILL_VIDEOS: { [key: string]: { title: string; videoId: string } } = {
+    // Frontend
+    'react': { title: 'React Full Course for Beginners', videoId: 'SqcY0GlETPk' },
+    'react.js': { title: 'React Full Course for Beginners', videoId: 'SqcY0GlETPk' },
+    'next.js': { title: 'Next.js 14 Full Course', videoId: 'ZjAqacIC_3c' },
+    'typescript': { title: 'TypeScript Full Course', videoId: 'BwuLxPH8IDs' },
+    'javascript': { title: 'JavaScript Full Course', videoId: 'lfmg-EJ8gm4' },
+    'html': { title: 'HTML Full Course', videoId: 'mJgBOIoGihA' },
+    'css': { title: 'CSS Full Course', videoId: 'OXGznpKZ_sA' },
+    'tailwind': { title: 'Tailwind CSS Full Course', videoId: 'ft30zcMlFa8' },
+    'vue': { title: 'Vue.js Full Course', videoId: '1GNsWa_EZdw' },
+    'vue.js': { title: 'Vue.js Full Course', videoId: '1GNsWa_EZdw' },
+    'angular': { title: 'Angular Full Course', videoId: '3qBXWUpoPHo' },
+    // Backend
+    'node.js': { title: 'Node.js Full Course', videoId: 'f2EqECiTBL8' },
+    'express': { title: 'Express.js Full Course', videoId: 'SccSCuHhOw0' },
+    'express.js': { title: 'Express.js Full Course', videoId: 'SccSCuHhOw0' },
+    'python': { title: 'Python Full Course for Beginners', videoId: 'ix9cRaBkVe0' },
+    'django': { title: 'Django Full Course', videoId: 'PtQiiknWUcI' },
+    'fastapi': { title: 'FastAPI Full Course', videoId: '7t2alSnE2-I' },
+    'nestjs': { title: 'NestJS Crash Course', videoId: '0M8AYU_hPas' },
+    'nest.js': { title: 'NestJS Crash Course', videoId: '0M8AYU_hPas' },
+    // Databases
+    'postgresql': { title: 'PostgreSQL Full Course', videoId: 'qw--VYLpxG4' },
+    'mongodb': { title: 'MongoDB Full Course', videoId: '-bt_y4Loofg' },
+    'mysql': { title: 'MySQL Full Course', videoId: 'HXV3zeQKqGY' },
+    'redis': { title: 'Redis Full Course', videoId: 'XCsS_NVAa1g' },
+    // DevOps
+    'docker': { title: 'Docker Full Course', videoId: 'pg19Z8LL06w' },
+    'kubernetes': { title: 'Kubernetes Full Course', videoId: 'X48VuDVv0do' },
+    'aws': { title: 'AWS Full Course', videoId: 'k1RI5locZE4' },
+    'git': { title: 'Git & GitHub Full Course', videoId: 'RGOj5yH7evk' },
+    'linux': { title: 'Linux Full Course', videoId: 'wBp0Rb-ZJak' },
+    'ci/cd': { title: 'CI/CD Full Course', videoId: 'scEDHsr3APg' },
+    // AI & Data
+    'machine learning': { title: 'Machine Learning Full Course', videoId: 'NWONeJKn9Kc' },
+    'deep learning': { title: 'Deep Learning Full Course', videoId: 'VyWAvY2CF9c' },
+    'tensorflow': { title: 'TensorFlow Full Course', videoId: 'tPYj3fFJGjk' },
+    'pytorch': { title: 'PyTorch Full Course', videoId: 'V_xro1bcAuA' },
+    'nlp': { title: 'NLP Full Course', videoId: 'U9t-slLl30E' },
+    'pandas': { title: 'Pandas Full Course', videoId: 'gtjxAH8uaP0' },
+    'numpy': { title: 'NumPy Full Course', videoId: 'QUT1VHiLmmI' },
+  };
+
+  const [activeVideoPhase, setActiveVideoPhase] = useState<string | null>(null);
+  const [videoCompleted, setVideoCompleted] = useState<{ [key: string]: boolean }>({});
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== 'https://www.youtube.com') return;
+      try {
+        const data = JSON.parse(event.data);
+        if (data.event === 'onStateChange' && data.info === 0) {
+          if (activeVideoPhase) {
+            setVideoCompleted(prev => ({ ...prev, [activeVideoPhase]: true }));
+            // Auto mark as learned when video ends
+            handleSkillComplete(activeVideoPhase);
+            setActiveVideoPhase(null);
+          }
+        }
+      } catch { }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [activeVideoPhase]);
+
+  const toggleAnswer = (idx: number) => {
+    setShowAnswers(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
 
   const handleGenerateRecommendations = async () => {
     setIsLoadingRecs(true);
@@ -255,7 +327,6 @@ export default function DashboardPage() {
 
       if (data.missingSkills) {
         setMissingSkills(data.missingSkills);
-        // Only set original order on first selection, not after completions
         if (!preserveOriginal) {
           setOriginalMissingSkills(data.missingSkills);
         }
@@ -1287,7 +1358,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* SECTION 5: ROADMAP */}
+        {/* SECTION 4: ROADMAP */}
         <section id="roadmap" className="min-h-screen flex flex-col justify-center px-4 md:px-12 border-b border-white/5">
           <div className="max-w-3xl space-y-8">
             <motion.div
@@ -1301,7 +1372,7 @@ export default function DashboardPage() {
               </h2>
               <p className="text-gray-400 text-xs">
                 {selectedRole
-                  ? `Skills to master for ${selectedRole}. Complete each phase to unlock the next.`
+                  ? `Skills to master for ${selectedRole}. Watch each course to unlock the next phase.`
                   : 'Select a target role above to generate your personalized roadmap.'}
               </p>
             </motion.div>
@@ -1323,10 +1394,12 @@ export default function DashboardPage() {
               </motion.div>
             ) : (
               <div className="relative border-l border-blue-500/20 pl-8 ml-4 space-y-10 font-mono text-xs">
-
                 {missingSkills.map((skill, idx) => {
                   const originalPhase = originalMissingSkills.indexOf(skill) + 1;
                   const isFirst = idx === 0;
+                  const video = SKILL_VIDEOS[skill.toLowerCase()];
+                  const isWatchingThis = activeVideoPhase === skill;
+                  const isVideoDone = videoCompleted[skill];
 
                   return (
                     <motion.div
@@ -1335,13 +1408,12 @@ export default function DashboardPage() {
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.5, delay: idx * 0.1 }}
-                      whileHover={{ x: 4 }}
+                      whileHover={isFirst ? { x: 4 } : {}}
                       className="relative"
                     >
-                      <div className={`absolute -left-[41px] top-0 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold
-                          ${isFirst
-                          ? 'bg-blue-600 border border-blue-400 text-white animate-pulse shadow-[0_0_15px_rgba(59,130,246,0.6)]'
-                          : 'bg-zinc-900 border border-white/10 text-gray-500 blur-[0.5px] opacity-40'
+                      <div className={`absolute -left-[41px] top-0 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-boldn${isFirst
+                        ? 'bg-blue-600 border border-blue-400 text-white animate-pulse shadow-[0_0_15px_rgba(59,130,246,0.6)]'
+                        : 'bg-zinc-900 border border-white/10 text-gray-500 blur-[0.5px] opacity-40'
                         }`}
                       >
                         {isFirst ? '➔' : '🔒'}
@@ -1353,24 +1425,78 @@ export default function DashboardPage() {
                         </h4>
                         <p className="text-gray-500 text-[11px] mt-1 leading-relaxed mb-3">
                           Master <span className="text-blue-300">{skill}</span> to improve your match for {selectedRole}.
-                          Complete this phase to unlock the next skill.
                         </p>
 
-                        {isFirst && (
-                          <motion.button
-                            whileHover={{ scale: 1.04, boxShadow: '0 0 15px rgba(16,185,129,0.4)' }}
-                            whileTap={{ scale: 0.96 }}
-                            onClick={() => handleSkillComplete(skill)}
-                            className="px-4 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
-                          >
-                            ✓ Mark as Learned
-                          </motion.button>
+                        {isFirst && video && (
+                          <div className="space-y-3">
+                            {!isWatchingThis ? (
+                              <motion.button
+                                whileHover={{ scale: 1.04 }}
+                                whileTap={{ scale: 0.96 }}
+                                onClick={() => setActiveVideoPhase(skill)}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 text-red-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
+                              >
+                                ▶ Watch Course — {video.title}
+                              </motion.button>
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="rounded-xl overflow-hidden border border-white/10">
+                                  <iframe
+                                    width="100%"
+                                    height="280"
+                                    src={`https://www.youtube.com/embed/${video.videoId}?enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}&rel=0`}
+                                    title={video.title}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                    className="w-full"
+                                  />
+                                </div>
+                                <p className="text-[10px] text-gray-500 font-mono animate-pulse">
+                                  ⏳ Complete the video to automatically unlock the next phase...
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* No video available fallback — keep manual button only here */}
+                        {isFirst && !video && (
+                          <div className="space-y-3">
+                            <p className="text-[10px] text-gray-500">
+                              🔍 Search: <span className="text-blue-400">"{skill} tutorial for beginners" on YouTube</span>
+                            </p>
+                            <motion.button
+                              whileHover={{ scale: 1.04 }}
+                              whileTap={{ scale: 0.96 }}
+                              onClick={() => handleSkillComplete(skill)}
+                              className="flex items-center gap-2 px-4 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                              ✓ Mark as Learned
+                            </motion.button>
+                          </div>
+                        )}
+
+                        {isFirst && !video && (
+                          <div className="space-y-3">
+                            <p className="text-[10px] text-gray-500">
+                              🔍 Search: <span className="text-blue-400">"{skill} tutorial for beginners" on YouTube</span>
+                            </p>
+                            <motion.button
+                              whileHover={{ scale: 1.04, boxShadow: '0 0 15px rgba(16,185,129,0.4)' }}
+                              whileTap={{ scale: 0.96 }}
+                              onClick={() => handleSkillComplete(skill)}
+                              className="flex items-center gap-2 px-4 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                              ✓ Mark as Learned
+                            </motion.button>
+                          </div>
                         )}
                       </div>
                     </motion.div>
                   );
                 })}
-
               </div>
             )}
           </div>
@@ -1486,6 +1612,10 @@ export default function DashboardPage() {
                 {['Technical', 'Behavioral', 'Problem-solving', 'Role-specific'].map(category => {
                   const categoryQuestions = interviewQuestions.filter(q => q.category === category);
                   if (categoryQuestions.length === 0) return null;
+
+                  // Track global index for toggle
+                  let globalIdx = 0;
+
                   return (
                     <motion.div
                       key={category}
@@ -1496,18 +1626,51 @@ export default function DashboardPage() {
                       <h3 className="text-xs font-bold uppercase tracking-widest text-blue-400 mb-3">
                         {category}
                       </h3>
-                      <div className="space-y-3">
-                        {categoryQuestions.map((q, idx) => (
-                          <div key={idx} className="flex items-start gap-3">
-                            <span className={`shrink-0 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest mt-0.5 ${q.difficulty === 'Easy' ? 'bg-emerald-500/20 text-emerald-400' :
-                              q.difficulty === 'Hard' ? 'bg-red-500/20 text-red-400' :
-                                'bg-blue-500/20 text-blue-400'
-                              }`}>
-                              {q.difficulty}
-                            </span>
-                            <p className="text-sm text-gray-300 leading-relaxed">{q.question}</p>
-                          </div>
-                        ))}
+                      <div className="space-y-4">
+                        {categoryQuestions.map((q, idx) => {
+                          const key = `${category}-${idx}`;
+                          return (
+                            <div key={idx} className="space-y-2">
+                              <div className="flex items-start gap-3">
+                                <span className={`shrink-0 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest mt-0.5 ${q.difficulty === 'Easy' ? 'bg-emerald-500/20 text-emerald-400' :
+                                  q.difficulty === 'Hard' ? 'bg-red-500/20 text-red-400' :
+                                    'bg-blue-500/20 text-blue-400'
+                                  }`}>
+                                  {q.difficulty}
+                                </span>
+                                <div className="flex-1">
+                                  <p className="text-sm text-gray-300 leading-relaxed">{q.question}</p>
+
+                                  {/* Toggle sample answer */}
+                                  <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => toggleAnswer(interviewQuestions.indexOf(q))}
+                                    className="mt-2 text-[10px] text-blue-400/70 hover:text-blue-400 font-mono uppercase tracking-widest transition-colors flex items-center gap-1"
+                                  >
+                                    {showAnswers[interviewQuestions.indexOf(q)] ? '▲ Hide' : '▼ Show'} Sample Answer
+                                  </motion.button>
+
+                                  {showAnswers[interviewQuestions.indexOf(q)] && (
+                                    <motion.div
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: 'auto' }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      className="mt-2 p-3 rounded-xl bg-blue-950/30 border border-blue-500/20"
+                                    >
+                                      <div className="text-[9px] text-blue-400 font-bold uppercase tracking-widest mb-1">
+                                        💡 Sample Answer Guide
+                                      </div>
+                                      <p className="text-[11px] text-gray-400 leading-relaxed">
+                                        {q.sample_answer}
+                                      </p>
+                                    </motion.div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </motion.div>
                   );

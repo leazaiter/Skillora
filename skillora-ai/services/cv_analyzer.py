@@ -19,7 +19,7 @@ SKILL_CATEGORIES = {
     "AI & Machine Learning": [
         "machine learning", "deep learning", "nlp", "tensorflow", "pytorch",
         "scikit-learn", "hugging face", "ollama", "langchain", "computer vision",
-        "neural network"
+        "neural network", "python"
     ],
     "Database Management": [
         "postgresql", "mysql", "mongodb", "redis", "sqlite", "firebase",

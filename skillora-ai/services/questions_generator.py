@@ -18,6 +18,7 @@ class Question(BaseModel):
     category: str
     question: str
     difficulty: str
+    sample_answer: str
 
 class QuestionsResponse(BaseModel):
     questions: List[Question]
@@ -39,13 +40,18 @@ Generate a mix of:
 
 Respond ONLY with a valid JSON array, no other text:
 [
-  {{"category": "Technical", "question": "...", "difficulty": "Medium"}},
-  {{"category": "Behavioral", "question": "...", "difficulty": "Easy"}},
+  {{
+    "category": "Technical",
+    "question": "...",
+    "difficulty": "Medium",
+    "sample_answer": "A strong answer would mention... (2-3 sentences max)"
+  }},
   ...
 ]
 
-Difficulties must be: Easy, Medium, or Hard."""
-
+Difficulties must be: Easy, Medium, or Hard.
+Sample answers should be concise tips on what a good answer includes, not full paragraphs."""
+    
     try:
         payload = json.dumps({
             "model": OLLAMA_MODEL,
@@ -77,10 +83,30 @@ Difficulties must be: Easy, Medium, or Hard."""
         print(f"Ollama error: {e}")
         # Fallback questions if Ollama fails
         questions = [
-            Question(category="Technical", question=f"Explain your experience with {request.skills[0] if request.skills else 'programming'}.", difficulty="Easy"),
-            Question(category="Behavioral", question="Tell me about a challenging project and how you handled it.", difficulty="Medium"),
-            Question(category="Problem-solving", question=f"How would you approach building a scalable {role} system?", difficulty="Hard"),
-            Question(category="Role-specific", question=f"What do you consider the most important skill for a {role}?", difficulty="Easy"),
-        ]
+    Question(
+        category="Technical",
+        question=f"Explain your experience with {request.skills[0] if request.skills else 'programming'}.",
+        difficulty="Easy",
+        sample_answer="Mention specific projects where you used this skill, what problems you solved, and what results you achieved."
+    ),
+    Question(
+        category="Behavioral",
+        question="Tell me about a challenging project and how you handled it.",
+        difficulty="Medium",
+        sample_answer="Use the STAR method: describe the Situation, Task you had, Action you took, and Result achieved. Be specific with numbers or outcomes."
+    ),
+    Question(
+        category="Problem-solving",
+        question=f"How would you approach building a scalable {role} system?",
+        difficulty="Hard",
+        sample_answer="Discuss architecture decisions, scalability patterns (load balancing, caching, microservices), and trade-offs you would consider."
+    ),
+    Question(
+        category="Role-specific",
+        question=f"What do you consider the most important skill for a {role}?",
+        difficulty="Easy",
+        sample_answer="Pick a skill genuinely relevant to the role, explain why it matters with a real example, and connect it to business impact."
+    ),
+]
 
     return QuestionsResponse(questions=questions, role=role)
